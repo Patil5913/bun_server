@@ -1,0 +1,25 @@
+{
+
+  "name": "bun-minio-server",
+
+  "version": "1.0.0",
+
+  "main": "src/server.js",
+
+  "type": "module",
+
+  "scripts": {
+
+    "start": "bun run src/server.js",
+
+    "dev": "bun --watch run src/server.js"
+
+  },
+
+  "dependencies": {
+
+    "bun": "latest"
+
+  }
+
+}
