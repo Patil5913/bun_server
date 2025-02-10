@@ -8,24 +8,13 @@ services:
       - "6969:6970"
     env_file:
       - .env
-    networks:
-      - bun_network
-      - minio_default
+    network_mode: "host"  # Use host network instead of Docker networks
     restart: unless-stopped
     volumes:
       - ./src:/app/src
       - ./.env:/app/.env
     environment:
       - NODE_ENV=production
-    extra_hosts:
-      - "minio_images:172.17.0.1"  # Docker host IP
-
-networks:
-  bun_network:
-    name: bun_network
-    driver: bridge
-  minio_default:
-    external: true
 
 volumes:
   minio_data: 
