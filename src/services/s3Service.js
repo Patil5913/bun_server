@@ -16,7 +16,7 @@ export class S3Service {
         throw new Error('Invalid bucket name');
       }
 
-      if (!file.content || file.content.byteLength === 0) {
+      if (!file.content || file.content.length === 0) {
         throw new Error('File content is empty');
       }
 
@@ -27,8 +27,8 @@ export class S3Service {
 
       // Write the file content
       try {
-        await s3File.write(new Uint8Array(file.content));
-        logger.info(`File written to S3: ${file.content.byteLength} bytes`);
+        await s3File.write(file.content);
+        logger.info(`File written to S3: ${file.content.length} bytes`);
       } catch (error) {
         logger.error("Error writing to S3:", error);
         throw new Error('Failed to write file to S3');
@@ -38,7 +38,7 @@ export class S3Service {
       return {
         filename,
         bucket,
-        size: file.content.byteLength,
+        size: file.content.length,
         type: file.type,
         url: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
       };
