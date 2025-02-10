@@ -26,6 +26,20 @@ export class FileController {
         });
       }
 
+      // Additional file type validation
+      if (!(file instanceof File) && !(file instanceof Blob)) {
+        logger.info("Upload failed: Invalid file format");
+        return new Response(JSON.stringify({
+          success: false,
+          error: "Invalid file format",
+          timestamp: formatDateTime(),
+          user: "Patil5913"
+        }), { 
+          status: 400,
+          headers: { "Content-Type": "application/json" }
+        });
+      }
+
       // Validate file size
       if (file.size === 0) {
         logger.info("Upload failed: File is empty");
@@ -40,7 +54,10 @@ export class FileController {
         });
       }
 
+      // Log file details for debugging
+      logger.info(`File details - Name: ${file.name}, Size: ${file.size}, Type: ${file.type}`);
       logger.info(`Uploading file: ${file.name} (${file.size} bytes) to bucket: ${bucket}`);
+      
       const result = await S3Service.uploadFile(file, bucket);
 
       logger.info(`File uploaded successfully: ${result.filename}`);

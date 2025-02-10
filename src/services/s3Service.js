@@ -16,25 +16,42 @@ export class S3Service {
         throw new Error('Invalid bucket name');
       }
 
+      // Additional file validation
+      if (!(file instanceof File) && !(file instanceof Blob)) {
+        throw new Error('Invalid file object');
+      }
+
       const filename = `${Date.now()}-${file.name}`;
       logger.info(`Generated filename: ${filename}`);
 
       const s3File = s3Client.file(join(bucket, filename));
       
-      // Get file buffer
-      const buffer = await file.arrayBuffer();
-      if (!buffer || buffer.byteLength === 0) {
-        throw new Error('File buffer is empty');
+      // Get file buffer - using Bun's specific file handling
+      let buffer;
+      if (file instanceof File) {
+        buffer = await file.arrayBuffer();
+      } else {
+        buffer = await file.stream();
       }
 
-      logger.info(`Writing file to S3 (${buffer.byteLength} bytes)`);
-      await s3File.write(new Uint8Array(buffer));
+      if (!buffer) {
+        throw new Error('Could not read file content');
+      }
+
+      logger.info(`Writing file to S3 (${file.size} bytes)`);
+      
+      // Use the appropriate write method based on the buffer type
+      if (buffer instanceof ArrayBuffer) {
+        await s3File.write(new Uint8Array(buffer));
+      } else {
+        await s3File.write(buffer);
+      }
 
       logger.info(`File uploaded successfully to ${bucket}/${filename}`);
       return {
         filename,
         bucket,
-        size: buffer.byteLength,
+        size: file.size,
         url: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
       };
 
