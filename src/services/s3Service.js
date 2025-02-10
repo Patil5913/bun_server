@@ -1,6 +1,6 @@
 import { join } from "path";
 
-import { s3Client } from "../config/s3Config.js";
+import { s3Client } from "../config/s3config.js";
 import { logger } from "../utils/logger.js";
 
 
@@ -20,31 +20,57 @@ export class S3Service {
         throw new Error('File content is empty');
       }
 
+      // Check if bucket exists, create if it doesn't
+      try {
+        const bucketExists = await s3Client.headBucket({ Bucket: bucket });
+        logger.info(`Bucket ${bucket} exists: ${!!bucketExists}`);
+      } catch (error) {
+        logger.info(`Creating bucket: ${bucket}`);
+        await s3Client.createBucket({ Bucket: bucket });
+      }
+
       const filename = `${Date.now()}-${file.name}`;
       logger.info(`Generated filename: ${filename}`);
 
       const s3File = s3Client.file(join(bucket, filename));
 
-      // Write the file content
+      // Write the file content with detailed error logging
       try {
+        logger.info(`Starting file write to S3: ${file.content.length} bytes`);
         await s3File.write(file.content);
         logger.info(`File written to S3: ${file.content.length} bytes`);
       } catch (error) {
-        logger.error("Error writing to S3:", error);
-        throw new Error('Failed to write file to S3');
+        logger.error("Error writing to S3:", {
+          error: error.message,
+          stack: error.stack,
+          code: error.code,
+          details: error
+        });
+        throw new Error(`Failed to write file to S3: ${error.message}`);
       }
 
-      logger.info(`File uploaded successfully to ${bucket}/${filename}`);
+      // Generate CDN URL - ensure proper URL formatting
+      const cdnBase = process.env.CDN_ENDPOINT.replace(/\/+$/, ''); // Remove trailing slashes
+      const cdnUrl = `${cdnBase}/${bucket}/${filename}`;
+      logger.info(`File uploaded successfully. CDN URL: ${cdnUrl}`);
+      
       return {
         filename,
         bucket,
         size: file.content.length,
         type: file.type,
-        url: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
+        url: cdnUrl,
+        // Add internal URL for debugging if needed
+        internalUrl: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
       };
 
     } catch (error) {
-      logger.error(`S3 upload error: ${error.message}`, error);
+      logger.error(`S3 upload error:`, {
+        error: error.message,
+        stack: error.stack,
+        code: error.code,
+        details: error
+      });
       throw error;
     }
   }
