@@ -10,6 +10,7 @@ services:
       - .env
     networks:
       - bun_network
+      - minio_default
     restart: unless-stopped
     volumes:
       - ./src:/app/src
@@ -23,6 +24,8 @@ networks:
   bun_network:
     name: bun_network
     driver: bridge
+  minio_default:
+    external: true
 
 volumes:
   minio_data: 
