@@ -4,7 +4,7 @@ import { logger } from "../utils/logger.js";
 const s3Config = {
   accessKeyId: process.env.S3_ACCESS_KEY_ID,
   secretAccessKey: process.env.S3_SECRET_ACCESS_KEY,
-  endpoint: "http://0.0.0.0:6969",
+  endpoint: "http://localhost:9000",
   bucket: process.env.S3_BUCKET || "bns",
   forcePathStyle: true,
   region: 'us-east-1',

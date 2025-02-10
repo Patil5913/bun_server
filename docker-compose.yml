@@ -4,7 +4,7 @@ services:
   bun:
     build: .
     container_name: bun_server
-    network_mode: "host"  # Use host network instead of Docker networks
+    network_mode: "host"  # Use host network to access MinIO on localhost
     env_file:
       - .env
     restart: unless-stopped

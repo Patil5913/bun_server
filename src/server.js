@@ -20,8 +20,8 @@ const EMOJIS = {
 const startServer = async (port) => {
   try {
     const server = Bun.serve({
-      port: port,
-      hostname: config.hostname,
+      port: process.env.PORT || 6970,
+      hostname: process.env.HOST || "0.0.0.0",
       development: process.env.NODE_ENV !== 'production',
 
       async fetch(req) {
@@ -344,7 +344,7 @@ const startServer = async (port) => {
       }
     });
 
-    logger.info(`Server running at http://localhost:${server.port}`);
+    logger.info(`Server running at http://${server.hostname}:${server.port}`);
     return server;
   } catch (error) {
     if (error.code === 'EADDRINUSE') {
