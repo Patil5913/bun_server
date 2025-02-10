@@ -1,33 +1,19 @@
 FROM oven/bun:latest
 
-
-
 WORKDIR /app
 
-
-
-# Copy package.json first
-
+# Copy package files
 COPY package.json .
+COPY bun.lockb .
 
-
-
-# Initialize bun project and install dependencies
-
+# Install dependencies
 RUN bun install
 
-
-
 # Copy the rest of the application
+COPY . .
 
-COPY .env .
+# Expose the port
+EXPOSE 6970
 
-COPY src/ src/
-
-
-
-EXPOSE 6969
-
-
-
+# Start the server
 CMD ["bun", "run", "src/server.js"]
