@@ -3,107 +3,65 @@ import { join } from "path";
 import { s3Client } from "../config/s3config.js";
 import { logger } from "../utils/logger.js";
 
-
-
 export class S3Service {
-
-  static async uploadFile(file, bucket) {
+  static async uploadFile(file, bucket = process.env.S3_BUCKET || "default") {
     try {
-      logger.info(`Starting upload process for file: ${file.name}`);
-      
-      // Validate bucket name
-      if (!bucket || typeof bucket !== 'string') {
-        throw new Error('Invalid bucket name');
+      if (!file || !file.name) {
+        throw new Error('Invalid file');
       }
 
-      if (!file.content || file.content.length === 0) {
-        throw new Error('File content is empty');
-      }
+      // Generate optimized filename
+      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      logger.info(`Processing upload for: ${filename}`);
 
-      // Check bucket by trying to access a test file
-      try {
-        const testFile = s3Client.file(join(bucket, '.test'));
-        await testFile.exists();
-        logger.info(`Bucket ${bucket} is accessible`);
-      } catch (error) {
-        logger.info(`Note: Bucket ${bucket} might need to be created manually in MinIO console`);
-      }
-
-      const filename = `${Date.now()}-${file.name}`;
-      logger.info(`Generated filename: ${filename}`);
-
+      // Create an S3 file reference
       const s3File = s3Client.file(join(bucket, filename));
 
-      // Write the file content with detailed error logging
-      try {
-        logger.info(`Starting file write to S3: ${file.content.length} bytes`);
-        await s3File.write(file.content);
-        logger.info(`File written to S3: ${file.content.length} bytes`);
-      } catch (error) {
-        logger.error("Error writing to S3:", {
-          error: error.message,
-          stack: error.stack,
-          code: error.code,
-          details: error
-        });
-        throw new Error(`Failed to write file to S3: ${error.message}`);
-      }
+      // Write file directly using Bun's optimized write
+      await s3File.write(file);
 
-      // Generate CDN URL - ensure proper URL formatting
-      const cdnBase = process.env.CDN_ENDPOINT.replace(/\/+$/, '');
-      const cdnUrl = `${cdnBase}/${bucket}/${filename}`;
-      logger.info(`File uploaded successfully. CDN URL: ${cdnUrl}`);
+      // Generate CDN URL
+      const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
       
       return {
-        filename,
-        bucket,
-        size: file.content.length,
-        type: file.type,
+        success: true,
         url: cdnUrl,
-        internalUrl: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
+        filename,
+        size: file.size,
+        type: file.type
       };
 
     } catch (error) {
-      logger.error(`S3 upload error:`, {
-        error: error.message,
-        stack: error.stack,
-        code: error.code,
-        details: error
-      });
+      logger.error('Upload failed:', error);
       throw error;
     }
   }
 
-
-
   static async getFile(bucket, filename) {
+    try {
+      const s3File = s3Client.file(join(bucket, filename));
+      
+      if (!await s3File.exists()) {
+        return null;
+      }
 
-    const s3File = s3Client.file(join(bucket, filename));
+      // Use Bun's optimized streaming
+      return s3File.stream();
 
-    const exists = await s3File.exists();
-
-    if (!exists) return null;
-
-    
-
-    const fileContent = await s3File.arrayBuffer();
-
-    const stat = await s3File.stat();
-
-    return { fileContent, stat };
-
+    } catch (error) {
+      logger.error('File retrieval failed:', error);
+      throw error;
+    }
   }
-
-
 
   static async deleteFile(bucket, filename) {
-
-    const s3File = s3Client.file(join(bucket, filename));
-
-    await s3File.delete();
-
-    return true;
-
+    try {
+      const s3File = s3Client.file(join(bucket, filename));
+      await s3File.delete();
+      return true;
+    } catch (error) {
+      logger.error('File deletion failed:', error);
+      throw error;
+    }
   }
-
 }
