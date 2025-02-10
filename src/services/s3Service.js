@@ -10,15 +10,6 @@ export class S3Service {
         throw new Error('Invalid file');
       }
 
-      // Validate bucket exists or create it
-      try {
-        const testFile = s3Client.file(join(bucket, '.test'));
-        await testFile.exists();
-      } catch (error) {
-        logger.info(`Note: Bucket ${bucket} might need to be created manually in MinIO console`);
-        throw new Error(`Bucket ${bucket} is not accessible. Please ensure it exists.`);
-      }
-
       // Generate optimized filename
       const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       logger.info(`Processing upload for: ${filename}`);
@@ -49,22 +40,23 @@ export class S3Service {
 
   static async getFileInfo(bucket, filename) {
     try {
-      const s3File = s3Client.file(join(bucket, filename));
+      // Try to get file info directly from the CDN URL
+      const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
       
-      if (!await s3File.exists()) {
-        logger.info(`File not found in bucket ${bucket}: ${filename}`);
+      // Check if file exists by making a HEAD request
+      const response = await fetch(cdnUrl, { method: 'HEAD' });
+      
+      if (!response.ok) {
+        logger.info(`File not found at CDN: ${cdnUrl}`);
         return null;
       }
-
-      const stat = await s3File.stat();
-      const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
 
       return {
         url: cdnUrl,
         filename,
-        size: stat.size,
-        type: stat.type || 'application/octet-stream',
-        lastModified: stat.lastModified
+        size: parseInt(response.headers.get('content-length') || '0'),
+        type: response.headers.get('content-type') || 'application/octet-stream',
+        lastModified: response.headers.get('last-modified')
       };
 
     } catch (error) {
@@ -76,18 +68,12 @@ export class S3Service {
   static async deleteFile(bucket, filename) {
     try {
       const s3File = s3Client.file(join(bucket, filename));
-      
-      if (!await s3File.exists()) {
-        logger.info(`File not found for deletion in bucket ${bucket}: ${filename}`);
-        return false;
-      }
-
       await s3File.delete();
       logger.info(`Successfully deleted file ${filename} from bucket ${bucket}`);
       return true;
     } catch (error) {
       logger.error('File deletion failed:', error);
-      throw error;
+      return false;
     }
   }
 }

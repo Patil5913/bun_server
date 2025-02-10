@@ -14,7 +14,7 @@ logger.info(`Initializing S3 client with endpoint: ${s3Config.endpoint}`);
 
 export const s3Client = new S3Client(s3Config);
 
-// Test the connection using file operations instead
+// Test the connection
 try {
   const testFile = s3Client.file('test.txt');
   await testFile.exists();
