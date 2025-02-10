@@ -12,9 +12,9 @@ export class FileController {
       const file = formData.get("file");
       const bucket = formData.get("bucket") || "default";
 
-      // Enhanced validation
+      // Enhanced validation with detailed logging
       if (!file) {
-        logger.info("Upload failed: No file provided");
+        logger.info("Upload failed: No file provided in form data");
         return new Response(JSON.stringify({
           success: false,
           error: "No file provided",
@@ -26,26 +26,21 @@ export class FileController {
         });
       }
 
-      // Additional file type validation
-      if (!(file instanceof File) && !(file instanceof Blob)) {
-        logger.info("Upload failed: Invalid file format");
-        return new Response(JSON.stringify({
-          success: false,
-          error: "Invalid file format",
-          timestamp: formatDateTime(),
-          user: "Patil5913"
-        }), { 
-          status: 400,
-          headers: { "Content-Type": "application/json" }
-        });
-      }
+      // Log the received file object properties
+      logger.info(`Received file object: ${JSON.stringify({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+        constructor: file.constructor.name
+      }, null, 2)}`);
 
       // Validate file size
-      if (file.size === 0) {
-        logger.info("Upload failed: File is empty");
+      if (!file.size || file.size === 0) {
+        logger.info(`Upload failed: File is empty (size: ${file.size})`);
         return new Response(JSON.stringify({
           success: false,
           error: "File is empty",
+          details: `File size: ${file.size}`,
           timestamp: formatDateTime(),
           user: "Patil5913"
         }), { 
@@ -54,10 +49,17 @@ export class FileController {
         });
       }
 
-      // Log file details for debugging
-      logger.info(`File details - Name: ${file.name}, Size: ${file.size}, Type: ${file.type}`);
+      // Get the file content
+      let fileContent;
+      try {
+        fileContent = await file.arrayBuffer();
+        logger.info(`Successfully read file content, size: ${fileContent.byteLength} bytes`);
+      } catch (error) {
+        logger.error("Failed to read file content:", error);
+        throw new Error("Failed to read file content");
+      }
+
       logger.info(`Uploading file: ${file.name} (${file.size} bytes) to bucket: ${bucket}`);
-      
       const result = await S3Service.uploadFile(file, bucket);
 
       logger.info(`File uploaded successfully: ${result.filename}`);

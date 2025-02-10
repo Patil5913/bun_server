@@ -16,42 +16,39 @@ export class S3Service {
         throw new Error('Invalid bucket name');
       }
 
-      // Additional file validation
-      if (!(file instanceof File) && !(file instanceof Blob)) {
-        throw new Error('Invalid file object');
+      // Get file content
+      let fileContent;
+      try {
+        fileContent = await file.arrayBuffer();
+        logger.info(`File content read successfully: ${fileContent.byteLength} bytes`);
+      } catch (error) {
+        logger.error("Error reading file content:", error);
+        throw new Error('Failed to read file content');
+      }
+
+      if (!fileContent || fileContent.byteLength === 0) {
+        throw new Error('File content is empty');
       }
 
       const filename = `${Date.now()}-${file.name}`;
       logger.info(`Generated filename: ${filename}`);
 
       const s3File = s3Client.file(join(bucket, filename));
-      
-      // Get file buffer - using Bun's specific file handling
-      let buffer;
-      if (file instanceof File) {
-        buffer = await file.arrayBuffer();
-      } else {
-        buffer = await file.stream();
-      }
 
-      if (!buffer) {
-        throw new Error('Could not read file content');
-      }
-
-      logger.info(`Writing file to S3 (${file.size} bytes)`);
-      
-      // Use the appropriate write method based on the buffer type
-      if (buffer instanceof ArrayBuffer) {
-        await s3File.write(new Uint8Array(buffer));
-      } else {
-        await s3File.write(buffer);
+      // Write the file content
+      try {
+        await s3File.write(new Uint8Array(fileContent));
+        logger.info(`File written to S3: ${fileContent.byteLength} bytes`);
+      } catch (error) {
+        logger.error("Error writing to S3:", error);
+        throw new Error('Failed to write file to S3');
       }
 
       logger.info(`File uploaded successfully to ${bucket}/${filename}`);
       return {
         filename,
         bucket,
-        size: file.size,
+        size: fileContent.byteLength,
         url: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
       };
 
