@@ -10,32 +10,32 @@ export class FileController {
       logger.info("Processing file upload request");
       
       const formData = await req.formData();
-      const file = formData.get("file");
+      const uploadedFile = formData.get("file");
       const bucket = formData.get("bucket") || process.env.S3_BUCKET || "default";
 
-      if (!file) {
-        logger.info("Upload failed: No file provided in form data");
+      if (!uploadedFile || !(uploadedFile instanceof File)) {
+        logger.info("Upload failed: Invalid file in form data");
         return new Response(
-          JSON.stringify({ success: false, error: "No file provided" }), 
+          JSON.stringify({ success: false, error: "Invalid file provided" }), 
           { status: 400, headers: { "Content-Type": "application/json" } }
         );
       }
 
       // Log file details for debugging
-      logger.info(`File details: name=${file.name}, size=${file.size}, type=${file.type}`);
+      logger.info(`File details: name=${uploadedFile.name}, size=${uploadedFile.size}, type=${uploadedFile.type}`);
 
       try {
         // Read file content as ArrayBuffer
-        const fileContent = await file.arrayBuffer();
+        const fileContent = await uploadedFile.arrayBuffer();
         
-        if (!fileContent) {
-          throw new Error("Could not read file content");
+        if (!fileContent || fileContent.byteLength === 0) {
+          throw new Error("Empty file content");
         }
 
         const fileData = {
-          name: file.name,
-          type: file.type || 'application/octet-stream',
-          size: file.size,
+          name: uploadedFile.name,
+          type: uploadedFile.type || 'application/octet-stream',
+          size: uploadedFile.size,
           content: new Uint8Array(fileContent)
         };
 
