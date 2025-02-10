@@ -1,0 +1,13 @@
+version: '3.8'
+
+services:
+  bun:
+    build: .
+    ports:
+      - "6969:6969"
+    env_file:
+      - .env
+    restart: unless-stopped
+
+volumes:
+  minio_data:
