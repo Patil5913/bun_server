@@ -15,29 +15,30 @@ export class S3Service {
       const filename = `${Date.now()}-${fileData.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       logger.info(`Processing upload for: ${filename} (${fileData.size} bytes)`);
 
-      // Create an S3 file reference
-      const s3File = s3Client.file(join(bucket, filename));
-
       try {
+        // Create an S3 file reference with explicit bucket path
+        const s3File = s3Client.file(`${bucket}/${filename}`);
+
         // Write file content with proper content type
-        await s3File.write(fileData.content, {
-          type: fileData.type
+        await s3File.write(Buffer.from(fileData.content), {
+          type: fileData.type || 'application/octet-stream'
         });
         
         logger.info(`Successfully wrote file to S3: ${filename}`);
 
-        // Generate CDN URL
-        const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
+        // Generate CDN URL using environment variable
+        const cdnUrl = `${process.env.CDN_ENDPOINT}/${bucket}/${filename}`;
         
         return {
           success: true,
           url: cdnUrl,
           filename,
           size: fileData.size,
-          type: fileData.type
+          type: fileData.type,
+          bucket
         };
       } catch (writeError) {
-        logger.error(`Error writing file to S3: ${writeError.message}`);
+        logger.error(`Error writing file to S3:`, writeError);
         throw new Error(`Failed to write file to S3: ${writeError.message}`);
       }
 
@@ -49,23 +50,23 @@ export class S3Service {
 
   static async getFileInfo(bucket, filename) {
     try {
-      // Try to get file info directly from the CDN URL
-      const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
+      const s3File = s3Client.file(`${bucket}/${filename}`);
       
-      // Check if file exists by making a HEAD request
-      const response = await fetch(cdnUrl, { method: 'HEAD' });
-      
-      if (!response.ok) {
-        logger.info(`File not found at CDN: ${cdnUrl}`);
+      if (!await s3File.exists()) {
+        logger.info(`File not found at path: ${bucket}/${filename}`);
         return null;
       }
+
+      const stat = await s3File.stat();
+      const cdnUrl = `${process.env.CDN_ENDPOINT}/${bucket}/${filename}`;
 
       return {
         url: cdnUrl,
         filename,
-        size: parseInt(response.headers.get('content-length') || '0'),
-        type: response.headers.get('content-type') || 'application/octet-stream',
-        lastModified: response.headers.get('last-modified')
+        bucket,
+        size: stat.size,
+        type: stat.type || 'application/octet-stream',
+        lastModified: stat.lastModified
       };
 
     } catch (error) {
@@ -76,7 +77,7 @@ export class S3Service {
 
   static async deleteFile(bucket, filename) {
     try {
-      const s3File = s3Client.file(join(bucket, filename));
+      const s3File = s3Client.file(`${bucket}/${filename}`);
       await s3File.delete();
       logger.info(`Successfully deleted file ${filename} from bucket ${bucket}`);
       return true;

@@ -16,6 +16,8 @@ services:
       - ./.env:/app/.env
     environment:
       - NODE_ENV=production
+    extra_hosts:
+      - "minio_images:172.17.0.1"  # Docker host IP
 
 networks:
   bun_network:
