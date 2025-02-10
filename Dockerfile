@@ -4,10 +4,12 @@ WORKDIR /app
 
 # Copy package files
 COPY package.json .
-COPY bun.lockb .
 
 # Install dependencies
 RUN bun install
+
+# Create necessary directories
+RUN mkdir -p /app/src
 
 # Copy the rest of the application
 COPY . .
