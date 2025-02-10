@@ -17,9 +17,10 @@ logger.info(`Initializing S3 client with endpoint: ${s3Config.endpoint}`);
 
 export const s3Client = new S3Client(s3Config);
 
-// Test the connection
+// Test the connection using file operations instead
 try {
-  await s3Client.listBuckets();
+  const testFile = s3Client.file('test.txt');
+  await testFile.exists();
   logger.info('Successfully connected to MinIO');
 } catch (error) {
   logger.error('Failed to connect to MinIO:', error);

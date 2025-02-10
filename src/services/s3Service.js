@@ -20,13 +20,13 @@ export class S3Service {
         throw new Error('File content is empty');
       }
 
-      // Check if bucket exists, create if it doesn't
+      // Check bucket by trying to access a test file
       try {
-        const bucketExists = await s3Client.headBucket({ Bucket: bucket });
-        logger.info(`Bucket ${bucket} exists: ${!!bucketExists}`);
+        const testFile = s3Client.file(join(bucket, '.test'));
+        await testFile.exists();
+        logger.info(`Bucket ${bucket} is accessible`);
       } catch (error) {
-        logger.info(`Creating bucket: ${bucket}`);
-        await s3Client.createBucket({ Bucket: bucket });
+        logger.info(`Note: Bucket ${bucket} might need to be created manually in MinIO console`);
       }
 
       const filename = `${Date.now()}-${file.name}`;
@@ -50,7 +50,7 @@ export class S3Service {
       }
 
       // Generate CDN URL - ensure proper URL formatting
-      const cdnBase = process.env.CDN_ENDPOINT.replace(/\/+$/, ''); // Remove trailing slashes
+      const cdnBase = process.env.CDN_ENDPOINT.replace(/\/+$/, '');
       const cdnUrl = `${cdnBase}/${bucket}/${filename}`;
       logger.info(`File uploaded successfully. CDN URL: ${cdnUrl}`);
       
@@ -60,7 +60,6 @@ export class S3Service {
         size: file.content.length,
         type: file.type,
         url: cdnUrl,
-        // Add internal URL for debugging if needed
         internalUrl: `${process.env.S3_ENDPOINT}/${bucket}/${filename}`
       };
 
