@@ -116,11 +116,15 @@ export class FileController {
   }
 
   static async handleGet(bucket, filename) {
+    logger.info(`Attempting to get file: ${bucket}/${filename}`);
+    
     const file = await S3Service.getFile(bucket, filename);
     if (!file) {
+      logger.info(`File not found: ${bucket}/${filename}`);
       return new Response("File not found", { status: 404 });
     }
 
+    logger.info(`File found: ${bucket}/${filename}, size: ${file.stat.size} bytes`);
     return new Response(file.fileContent, {
       headers: {
         "Content-Type": file.stat.type || "application/octet-stream",
