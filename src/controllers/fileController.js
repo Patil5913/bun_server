@@ -1,6 +1,7 @@
 import { S3Service } from "../services/s3Service.js";
 import { logger } from "../utils/logger.js";
 import { formatDateTime } from "../utils/dateFormatter.js";
+import { readFileSync } from "node:fs";
 
 export class FileController {
 
@@ -23,27 +24,44 @@ export class FileController {
       // Log file details for debugging
       logger.info(`File details: name=${file.name}, size=${file.size}, type=${file.type}`);
 
-      // Read file content as ArrayBuffer
-      const fileContent = await file.arrayBuffer();
-      const fileData = {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        content: fileContent
-      };
+      try {
+        // Read file content as ArrayBuffer
+        const fileContent = await file.arrayBuffer();
+        
+        if (!fileContent) {
+          throw new Error("Could not read file content");
+        }
 
-      logger.info(`Uploading file: ${fileData.name} to bucket: ${bucket}`);
-      const result = await S3Service.uploadFile(fileData, bucket);
+        const fileData = {
+          name: file.name,
+          type: file.type || 'application/octet-stream',
+          size: file.size,
+          content: new Uint8Array(fileContent)
+        };
 
-      logger.info(`File uploaded successfully: ${result.filename}`);
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          ...result, 
-          timestamp: formatDateTime()
-        }), 
-        { headers: { "Content-Type": "application/json" } }
-      );
+        logger.info(`Prepared file for upload: ${fileData.name} (${fileData.size} bytes)`);
+        const result = await S3Service.uploadFile(fileData, bucket);
+
+        logger.info(`File uploaded successfully: ${result.filename}`);
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            ...result, 
+            timestamp: formatDateTime()
+          }), 
+          { headers: { "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        logger.error(`Error processing file: ${error.message}`);
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "Error processing file upload",
+            details: error.message
+          }), 
+          { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+      }
 
     } catch (error) {
       logger.error("Upload handler error:", error);

@@ -6,32 +6,40 @@ import { logger } from "../utils/logger.js";
 export class S3Service {
   static async uploadFile(fileData, bucket = process.env.S3_BUCKET || "default") {
     try {
-      if (!fileData || !fileData.name || !fileData.content) {
+      if (!fileData?.name || !fileData?.content) {
+        logger.error('Invalid file data:', fileData);
         throw new Error('Invalid file data');
       }
 
       // Generate optimized filename
       const filename = `${Date.now()}-${fileData.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
-      logger.info(`Processing upload for: ${filename}`);
+      logger.info(`Processing upload for: ${filename} (${fileData.size} bytes)`);
 
       // Create an S3 file reference
       const s3File = s3Client.file(join(bucket, filename));
 
-      // Write file content
-      await s3File.write(fileData.content, {
-        type: fileData.type || 'application/octet-stream'
-      });
+      try {
+        // Write file content with proper content type
+        await s3File.write(fileData.content, {
+          type: fileData.type
+        });
+        
+        logger.info(`Successfully wrote file to S3: ${filename}`);
 
-      // Generate CDN URL
-      const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
-      
-      return {
-        success: true,
-        url: cdnUrl,
-        filename,
-        size: fileData.size,
-        type: fileData.type
-      };
+        // Generate CDN URL
+        const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
+        
+        return {
+          success: true,
+          url: cdnUrl,
+          filename,
+          size: fileData.size,
+          type: fileData.type
+        };
+      } catch (writeError) {
+        logger.error(`Error writing file to S3: ${writeError.message}`);
+        throw new Error(`Failed to write file to S3: ${writeError.message}`);
+      }
 
     } catch (error) {
       logger.error('Upload failed:', error);
