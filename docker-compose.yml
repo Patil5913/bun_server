@@ -4,10 +4,34 @@ services:
   bun:
     build: .
     ports:
-      - "6969:6969"
-    env_file:
-      - .env
-    restart: unless-stopped
+      - "6969:6970"
+    environment:
+      - S3_ACCESS_KEY_ID=QFd9YsPxT4LAPwokJlmc
+      - S3_SECRET_ACCESS_KEY=A6uBAfXdJEPoy1F7m0QSnAxIXwzqR5SAqR8Nj0hR
+      - S3_ENDPOINT=http://localhost:9000
+    networks:
+      - app-network
+    depends_on:
+      - minio
+
+  minio:
+    image: minio/minio
+    container_name: minio_images
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=Vrugle@123
+    command: server --console-address ":9001" /data
+    volumes:
+      - minio_data:/data
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
 
 volumes:
-  minio_data:
+  minio_data: 
