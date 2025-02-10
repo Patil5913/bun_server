@@ -31,16 +31,46 @@ export class FileController {
         name: file.name,
         size: file.size,
         type: file.type,
-        constructor: file.constructor.name
+        constructor: file.constructor.name,
+        keys: Object.keys(file)
       }, null, 2)}`);
 
-      // Validate file size
-      if (!file.size || file.size === 0) {
-        logger.info(`Upload failed: File is empty (size: ${file.size})`);
+      // Try to read the file content first
+      let fileContent;
+      try {
+        if (file instanceof Blob) {
+          fileContent = await file.arrayBuffer();
+        } else {
+          // If it's not a Blob, try to read it as a stream
+          const chunks = [];
+          for await (const chunk of file.stream()) {
+            chunks.push(chunk);
+          }
+          fileContent = await new Blob(chunks).arrayBuffer();
+        }
+        
+        logger.info(`Successfully read file content, size: ${fileContent.byteLength} bytes`);
+        
+        if (!fileContent || fileContent.byteLength === 0) {
+          logger.info(`Upload failed: File content is empty`);
+          return new Response(JSON.stringify({
+            success: false,
+            error: "File content is empty",
+            details: "File was read but contains no data",
+            timestamp: formatDateTime(),
+            user: "Patil5913"
+          }), { 
+            status: 400,
+            headers: { "Content-Type": "application/json" }
+          });
+        }
+        
+      } catch (error) {
+        logger.error("Failed to read file content:", error);
         return new Response(JSON.stringify({
           success: false,
-          error: "File is empty",
-          details: `File size: ${file.size}`,
+          error: "Failed to read file content",
+          details: error.message,
           timestamp: formatDateTime(),
           user: "Patil5913"
         }), { 
@@ -49,18 +79,12 @@ export class FileController {
         });
       }
 
-      // Get the file content
-      let fileContent;
-      try {
-        fileContent = await file.arrayBuffer();
-        logger.info(`Successfully read file content, size: ${fileContent.byteLength} bytes`);
-      } catch (error) {
-        logger.error("Failed to read file content:", error);
-        throw new Error("Failed to read file content");
-      }
-
-      logger.info(`Uploading file: ${file.name} (${file.size} bytes) to bucket: ${bucket}`);
-      const result = await S3Service.uploadFile(file, bucket);
+      logger.info(`Uploading file: ${file.name} (${fileContent.byteLength} bytes) to bucket: ${bucket}`);
+      const result = await S3Service.uploadFile({
+        name: file.name,
+        content: fileContent,
+        type: file.type
+      }, bucket);
 
       logger.info(`File uploaded successfully: ${result.filename}`);
       return new Response(JSON.stringify({
