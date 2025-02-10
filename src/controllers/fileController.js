@@ -20,8 +20,20 @@ export class FileController {
         );
       }
 
-      logger.info(`Uploading file: ${file.name} to bucket: ${bucket}`);
-      const result = await S3Service.uploadFile(file, bucket);
+      // Log file details for debugging
+      logger.info(`File details: name=${file.name}, size=${file.size}, type=${file.type}`);
+
+      // Read file content as ArrayBuffer
+      const fileContent = await file.arrayBuffer();
+      const fileData = {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        content: fileContent
+      };
+
+      logger.info(`Uploading file: ${fileData.name} to bucket: ${bucket}`);
+      const result = await S3Service.uploadFile(fileData, bucket);
 
       logger.info(`File uploaded successfully: ${result.filename}`);
       return new Response(

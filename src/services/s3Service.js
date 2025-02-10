@@ -4,22 +4,23 @@ import { s3Client } from "../config/s3config.js";
 import { logger } from "../utils/logger.js";
 
 export class S3Service {
-  static async uploadFile(file, bucket = process.env.S3_BUCKET || "default") {
+  static async uploadFile(fileData, bucket = process.env.S3_BUCKET || "default") {
     try {
-      if (!file || !file.name) {
-        throw new Error('Invalid file');
+      if (!fileData || !fileData.name || !fileData.content) {
+        throw new Error('Invalid file data');
       }
 
       // Generate optimized filename
-      const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const filename = `${Date.now()}-${fileData.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
       logger.info(`Processing upload for: ${filename}`);
 
       // Create an S3 file reference
       const s3File = s3Client.file(join(bucket, filename));
 
-      // Write file directly using Bun's optimized write
-      const buffer = Buffer.from(await file.arrayBuffer());
-      await s3File.write(buffer);
+      // Write file content
+      await s3File.write(fileData.content, {
+        type: fileData.type || 'application/octet-stream'
+      });
 
       // Generate CDN URL
       const cdnUrl = `http://cdn.vrugle.com:9000/${bucket}/${filename}`;
@@ -28,8 +29,8 @@ export class S3Service {
         success: true,
         url: cdnUrl,
         filename,
-        size: buffer.length,
-        type: file.type
+        size: fileData.size,
+        type: fileData.type
       };
 
     } catch (error) {
