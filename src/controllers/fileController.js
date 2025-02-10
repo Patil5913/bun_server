@@ -20,60 +20,26 @@ export class FileController {
         );
       }
 
-      logger.info(`Received file object: ${JSON.stringify({
-        name: file.name,
-        size: file.size,
-        type: file.type,
-        constructor: file.constructor.name,
-        keys: Object.keys(file),
-        hasStream: typeof file.stream === 'function',
-        hasArrayBuffer: typeof file.arrayBuffer === 'function'
-      }, null, 2)}`);
-
-      let fileContent;
-      try {
-        if (file instanceof Blob || file instanceof File) {
-          logger.info('Reading file as Blob/File');
-          const buffer = Buffer.from(await file.arrayBuffer());
-          fileContent = buffer;
-          logger.info(`Read ${buffer.length} bytes from file`);
-        } else {
-          logger.info('Reading file as raw data');
-          fileContent = Buffer.from(await file.text());
-          logger.info(`Read ${fileContent.length} bytes from file`);
-        }
-
-        if (!fileContent || fileContent.length === 0) {
-          logger.info(`Upload failed: File content is empty`);
-          return new Response(
-            JSON.stringify({ success: false, error: "File content is empty" }), 
-            { status: 400, headers: { "Content-Type": "application/json" } }
-          );
-        }
-
-        logger.info(`Successfully read file content, size: ${fileContent.length} bytes`);
-        
-      } catch (error) {
-        logger.error("Failed to read file content:", error);
-        return new Response(
-          JSON.stringify({ success: false, error: "Failed to read file content", details: error.message }), 
-          { status: 400, headers: { "Content-Type": "application/json" } }
-        );
-      }
-
-      logger.info(`Uploading file: ${file.name} (${fileContent.length} bytes) to bucket: ${bucket}`);
+      logger.info(`Uploading file: ${file.name} to bucket: ${bucket}`);
       const result = await S3Service.uploadFile(file, bucket);
 
       logger.info(`File uploaded successfully: ${result.filename}`);
       return new Response(
-        JSON.stringify({ success: true, ...result, timestamp: formatDateTime(), user: "Patil5913" }), 
+        JSON.stringify({ 
+          success: true, 
+          ...result, 
+          timestamp: formatDateTime()
+        }), 
         { headers: { "Content-Type": "application/json" } }
       );
 
     } catch (error) {
       logger.error("Upload handler error:", error);
       return new Response(
-        JSON.stringify({ success: false, error: error.message }), 
+        JSON.stringify({ 
+          success: false, 
+          error: error.message 
+        }), 
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -81,22 +47,42 @@ export class FileController {
 
   static async handleGet(bucket, filename) {
     try {
-      logger.info(`Attempting to get file: ${bucket}/${filename}`);
+      logger.info(`Getting file info: ${bucket}/${filename}`);
       
-      const stream = await S3Service.getFile(bucket, filename);
+      const fileInfo = await S3Service.getFileInfo(bucket, filename);
       
-      if (!stream) {
+      if (!fileInfo) {
         logger.info(`File not found: ${bucket}/${filename}`);
-        return new Response("File not found", { status: 404 });
+        return new Response(
+          JSON.stringify({ 
+            success: false, 
+            error: "File not found" 
+          }), 
+          { 
+            status: 404, 
+            headers: { "Content-Type": "application/json" } 
+          }
+        );
       }
 
-      logger.info(`File found: ${bucket}/${filename}, size: ${stream.stat.size} bytes`);
-      return new Response(stream);
+      logger.info(`Retrieved file info: ${bucket}/${filename}`);
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          ...fileInfo 
+        }), 
+        { 
+          headers: { "Content-Type": "application/json" } 
+        }
+      );
 
     } catch (error) {
       logger.error("Get handler error:", error);
       return new Response(
-        JSON.stringify({ success: false, error: error.message }), 
+        JSON.stringify({ 
+          success: false, 
+          error: error.message 
+        }), 
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
@@ -104,15 +90,24 @@ export class FileController {
 
   static async handleDelete(bucket, filename) {
     try {
-      await S3Service.deleteFile(bucket, filename);
+      const deleted = await S3Service.deleteFile(bucket, filename);
       return new Response(
-        JSON.stringify({ success: true, message: "File deleted successfully" }), 
-        { headers: { "Content-Type": "application/json" } }
+        JSON.stringify({ 
+          success: deleted, 
+          message: deleted ? "File deleted successfully" : "File not found" 
+        }), 
+        { 
+          status: deleted ? 200 : 404,
+          headers: { "Content-Type": "application/json" } 
+        }
       );
     } catch (error) {
       logger.error("Delete handler error:", error);
       return new Response(
-        JSON.stringify({ success: false, error: error.message }), 
+        JSON.stringify({ 
+          success: false, 
+          error: error.message 
+        }), 
         { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
