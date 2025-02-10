@@ -20,9 +20,13 @@ const EMOJIS = {
 const server = Bun.serve({
   port: config.port,
   hostname: config.hostname,
+  development: process.env.NODE_ENV !== 'production',
 
   async fetch(req) {
     try {
+      // Add request logging
+      logger.info(`${req.method} ${new URL(req.url).pathname}`);
+      
       const corsResponse = corsMiddleware(req);
       if (corsResponse) return corsResponse;
 
@@ -303,6 +307,9 @@ curl -X DELETE \\
 
       // File upload endpoint
       if (req.method === "POST" && url.pathname === "/upload") {
+        // Add request size logging
+        const contentLength = req.headers.get('content-length');
+        logger.info(`Upload request size: ${contentLength} bytes`);
         return await FileController.handleUpload(req);
       }
       
@@ -322,10 +329,11 @@ curl -X DELETE \\
 
       return new Response("Not Found", { status: 404 });
     } catch (error) {
-      logger.error("Server error", error);
+      logger.error("Server error:", error);
       return new Response(JSON.stringify({
         success: false,
-        error: "Internal Server Error"
+        error: "Internal Server Error",
+        details: error.message
       }), { 
         status: 500,
         headers: { "Content-Type": "application/json" }

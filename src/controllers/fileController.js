@@ -32,21 +32,34 @@ export class FileController {
         size: file.size,
         type: file.type,
         constructor: file.constructor.name,
-        keys: Object.keys(file)
+        keys: Object.keys(file),
+        hasStream: typeof file.stream === 'function',
+        hasArrayBuffer: typeof file.arrayBuffer === 'function'
       }, null, 2)}`);
 
       // Try to read the file content first
       let fileContent;
       try {
-        if (file instanceof Blob) {
+        // Try different methods to read the file
+        if (typeof file.arrayBuffer === 'function') {
+          logger.info('Reading file using arrayBuffer()');
           fileContent = await file.arrayBuffer();
-        } else {
-          // If it's not a Blob, try to read it as a stream
+        } else if (typeof file.stream === 'function') {
+          logger.info('Reading file using stream()');
           const chunks = [];
-          for await (const chunk of file.stream()) {
-            chunks.push(chunk);
+          const reader = file.stream().getReader();
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            chunks.push(value);
           }
           fileContent = await new Blob(chunks).arrayBuffer();
+        } else if (file.text) {
+          logger.info('Reading file using text()');
+          const text = await file.text();
+          fileContent = new TextEncoder().encode(text).buffer;
+        } else {
+          throw new Error('No suitable method found to read file content');
         }
         
         logger.info(`Successfully read file content, size: ${fileContent.byteLength} bytes`);
