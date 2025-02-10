@@ -4,11 +4,9 @@ services:
   bun:
     build: .
     container_name: bun_server
-    ports:
-      - "6969:6970"
+    network_mode: "host"  # Use host network instead of Docker networks
     env_file:
       - .env
-    network_mode: "host"  # Use host network instead of Docker networks
     restart: unless-stopped
     volumes:
       - ./src:/app/src
